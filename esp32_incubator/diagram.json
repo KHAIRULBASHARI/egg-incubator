@@ -1,0 +1,421 @@
+{
+  "version": 1,
+  "author": "Sistem-Penetasan-Tanpa-Resistor",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "board-esp32-devkit-c-v4",
+      "id": "esp",
+      "top": 160,
+      "left": 250
+    },
+    {
+      "type": "wokwi-text",
+      "id": "t_esp",
+      "top": 130,
+      "left": 240,
+      "attrs": {
+        "text": "ESP32-CAM (Penetasan)"
+      }
+    },
+    {
+      "type": "wokwi-lcd1602",
+      "id": "lcd",
+      "top": -40,
+      "left": -20,
+      "attrs": {
+        "pins": "i2c"
+      }
+    },
+    {
+      "type": "wokwi-text",
+      "id": "t_lcd",
+      "top": -70,
+      "left": -10,
+      "attrs": {
+        "text": "LCD 16x4 I2C (PCF8574)"
+      }
+    },
+    {
+      "type": "wokwi-dht22",
+      "id": "dht",
+      "top": -40,
+      "left": 550
+    },
+    {
+      "type": "wokwi-text",
+      "id": "t_dht",
+      "top": -70,
+      "left": 520,
+      "attrs": {
+        "text": "Sensor Suhu & Hum (DHT22)"
+      }
+    },
+    {
+      "type": "wokwi-vcc",
+      "id": "pln_fasa",
+      "top": 490,
+      "left": 20
+    },
+    {
+      "type": "wokwi-text",
+      "id": "t_fasa",
+      "top": 460,
+      "left": -10,
+      "attrs": {
+        "text": "PLN: FASA (L)"
+      }
+    },
+    {
+      "type": "wokwi-gnd",
+      "id": "pln_netral",
+      "top": 700,
+      "left": 20
+    },
+    {
+      "type": "wokwi-text",
+      "id": "t_netral",
+      "top": 730,
+      "left": -10,
+      "attrs": {
+        "text": "PLN: NETRAL (N)"
+      }
+    },
+    {
+      "type": "wokwi-relay-module",
+      "id": "r1",
+      "top": 470,
+      "left": 110
+    },
+    {
+      "type": "wokwi-text",
+      "id": "t_r1",
+      "top": 440,
+      "left": 110,
+      "attrs": {
+        "text": "Relay 1: Lampu"
+      }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "lampu",
+      "top": 580,
+      "left": 210,
+      "attrs": {
+        "color": "red",
+        "label": "Lampu 220V"
+      }
+    },
+    {
+      "type": "wokwi-text",
+      "id": "t_lampu",
+      "top": 640,
+      "left": 160,
+      "attrs": {
+        "text": "Beban 1: Lampu 220V"
+      }
+    },
+    {
+      "type": "wokwi-relay-module",
+      "id": "r2",
+      "top": 470,
+      "left": 320
+    },
+    {
+      "type": "wokwi-text",
+      "id": "t_r2",
+      "top": 440,
+      "left": 320,
+      "attrs": {
+        "text": "Relay 2: Dinamo"
+      }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "dinamo",
+      "top": 580,
+      "left": 420,
+      "attrs": {
+        "color": "orange",
+        "label": "Dinamo 220V"
+      }
+    },
+    {
+      "type": "wokwi-text",
+      "id": "t_dinamo",
+      "top": 640,
+      "left": 370,
+      "attrs": {
+        "text": "Beban 2: Dinamo 220V"
+      }
+    },
+    {
+      "type": "wokwi-relay-module",
+      "id": "r3",
+      "top": 470,
+      "left": 530
+    },
+    {
+      "type": "wokwi-text",
+      "id": "t_r3",
+      "top": 440,
+      "left": 530,
+      "attrs": {
+        "text": "Relay 3: Kipas"
+      }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "kipas",
+      "top": 580,
+      "left": 630,
+      "attrs": {
+        "color": "blue",
+        "label": "Kipas 220V"
+      }
+    },
+    {
+      "type": "wokwi-text",
+      "id": "t_kipas",
+      "top": 640,
+      "left": 580,
+      "attrs": {
+        "text": "Beban 3: Kipas 220V"
+      }
+    }
+  ],
+  "connections": [
+    [
+      "esp:14",
+      "lcd:SCL",
+      "blue",
+      [
+        "h-30",
+        "v-120",
+        "*",
+        "h-20"
+      ]
+    ],
+    [
+      "esp:13",
+      "lcd:SDA",
+      "green",
+      [
+        "h-50",
+        "v-140",
+        "*",
+        "h-40"
+      ]
+    ],
+    [
+      "esp:GND.1",
+      "lcd:GND",
+      "black",
+      [
+        "h-70",
+        "v-160",
+        "*",
+        "h-60"
+      ]
+    ],
+    [
+      "esp:5V",
+      "lcd:VCC",
+      "red",
+      [
+        "h-90",
+        "v-180",
+        "*",
+        "h-80"
+      ]
+    ],
+    [
+      "esp:16",
+      "dht:SDA",
+      "gold",
+      [
+        "h40",
+        "v-140"
+      ]
+    ],
+    [
+      "esp:3V3",
+      "dht:VCC",
+      "red",
+      [
+        "v-110",
+        "h240"
+      ]
+    ],
+    [
+      "esp:GND.2",
+      "dht:GND",
+      "black",
+      [
+        "h70",
+        "v-120"
+      ]
+    ],
+    [
+      "esp:15",
+      "r1:IN",
+      "orange",
+      [
+        "h30",
+        "v40",
+        "h-110"
+      ]
+    ],
+    [
+      "esp:2",
+      "r2:IN",
+      "purple",
+      [
+        "h50",
+        "v70",
+        "h110"
+      ]
+    ],
+    [
+      "esp:12",
+      "r3:IN",
+      "cyan",
+      [
+        "h-20",
+        "v90",
+        "h380"
+      ]
+    ],
+    [
+      "esp:5V",
+      "r1:VCC",
+      "red",
+      [
+        "h-60",
+        "v60"
+      ]
+    ],
+    [
+      "r1:VCC",
+      "r2:VCC",
+      "red",
+      [
+        "v-20",
+        "h210"
+      ]
+    ],
+    [
+      "r2:VCC",
+      "r3:VCC",
+      "red",
+      [
+        "v-20",
+        "h210"
+      ]
+    ],
+    [
+      "esp:GND.1",
+      "r1:GND",
+      "black",
+      [
+        "h-80",
+        "v80"
+      ]
+    ],
+    [
+      "r1:GND",
+      "r2:GND",
+      "black",
+      [
+        "v-35",
+        "h210"
+      ]
+    ],
+    [
+      "r2:GND",
+      "r3:GND",
+      "black",
+      [
+        "v-35",
+        "h210"
+      ]
+    ],
+    [
+      "pln_fasa:VCC",
+      "r1:COM",
+      "brown",
+      [
+        "v0"
+      ]
+    ],
+    [
+      "r1:COM",
+      "r2:COM",
+      "brown",
+      [
+        "v-15",
+        "h210"
+      ]
+    ],
+    [
+      "r2:COM",
+      "r3:COM",
+      "brown",
+      [
+        "v-15",
+        "h210"
+      ]
+    ],
+    [
+      "r1:NO",
+      "lampu:A",
+      "crimson",
+      [
+        "v20"
+      ]
+    ],
+    [
+      "r2:NO",
+      "dinamo:A",
+      "darkorange",
+      [
+        "v20"
+      ]
+    ],
+    [
+      "r3:NO",
+      "kipas:A",
+      "dodgerblue",
+      [
+        "v20"
+      ]
+    ],
+    [
+      "lampu:C",
+      "pln_netral:GND",
+      "navy",
+      [
+        "v20",
+        "h-150"
+      ]
+    ],
+    [
+      "dinamo:C",
+      "lampu:C",
+      "navy",
+      [
+        "v20",
+        "h-210"
+      ]
+    ],
+    [
+      "kipas:C",
+      "dinamo:C",
+      "navy",
+      [
+        "v20",
+        "h-210"
+      ]
+    ]
+  ]
+}

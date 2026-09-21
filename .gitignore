@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.env
+
+# Model weights & large datasets
+*.pt
+*.onnx
+captures/
+results/
+telemetry_log.csv
+
+# OS
+Thumbs.db
+.DS_Store
