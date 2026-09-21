@@ -1,25 +1,34 @@
 # Sistem Cerdas Monitoring Penetasan Telur Ayam & Candling Berbasis ESP32-CAM
 
-Proyek ini merupakan sistem monitoring otomatis untuk inkubator penetasan telur ayam dan unit candling menggunakan 2 modul **ESP32-CAM AI-Thinker**.
+Proyek ini merupakan sistem monitoring otomatis untuk inkubator penetasan telur ayam dan unit candling menggunakan 2 modul **ESP32-CAM AI-Thinker** dengan bodi **Triplek Tipis** dan mekanisme **Rak Gelinding (Roller Egg Turner)**.
 
 ---
 
-## 📌 Arsitektur Sistem
+## 🏛️ Arsitektur Desain Fisik 3D (Tersedia di Blender `.blend`)
 
-Sistem terbagi menjadi dua unit independen:
-1. **Unit Penetasan (Incubator Overhead):**
-   - Kamera ESP32-CAM memantau kondisi rak telur dari atap inkubator.
-   - Sensor **DHT22** memantau suhu dan kelembaban inkubator secara berkala.
-   - Layar **LCD 16x4 I2C** menampilkan metrik secara real-time.
-   - Mengendalikan 3 aktuator tegangan tinggi AC 220V melalui modul relay:
-     - **Lampu Pemanas AC 220V** (Termostat otomatis 37.5°C - 38.0°C).
-     - **Dinamo Pembalik Telur AC 220V** (Timer otomatis berkala tiap 3 jam).
-     - **Kipas Sirkulasi / Buang AC 220V** (Aktif saat overheat > 38.2°C).
-2. **Unit Candling (Peneropongan Telur):**
-   - Kamera makro ESP32-CAM untuk menangkap citra penetrasi cahaya cangkang telur.
-   - Lampu sorot penetrasi (Flash LED internal / Lampu HPL eksternal via relay).
-   - Tombol shutter fisik untuk pengambilan citra instan saat telur diletakkan.
-   - Buzzer indikator bunyi konfirmasi saat foto selesai diambil.
+File 3D lengkap dapat dibuka langsung di Blender:  
+📁 `D:\project egg\desain_3d_penetasan_dan_candling.blend`
+
+### 1. Unit 1: Mesin Penetasan (Incubator)
+- **Material Bodi:** Kayu Triplek tipis (*Thin Plywood*) dengan tekstur serat kayu alami dan pintu depan kaca akrilik transparan.
+- **Mekanisme Rak Telur:** **Rak Gelinding (Roller System)**:
+  - 7 pipa silinder roller berputar horizontal berjejer.
+  - Telur-telur diletakkan horizontal di antara celah 2 pipa roller.
+  - Roda gigi (*gears*) di sisi samping terhubung ke batang rel penggerak.
+  - Digerakkan oleh **Dinamo Motor Asinkron AC 220V (2.5/3 RPM)** dengan tuas engkol sehingga telur menggelinding berputar perlahan otomatis tiap beberapa jam.
+- **Nampan Air (Water Tray):** Terletak di lantai dasar di bawah rak gelinding untuk menjaga kelembaban.
+- **Kamera Overhead ESP32-CAM:** Terpasang di plafon atap tepat di tengah interior, lensa mengarah vertikal lurus ke bawah memantau seluruh rak telur.
+- **Pemanas (2x Lampu Pijar AC 220V):** Fitting keramik terpasang di langit-langit kiri dan kanan.
+- **Kipas Sirkulasi:** Di dinding belakang meniupkan sirkulasi udara hangat merata ke seluruh ruangan.
+- **Sensor DHT22:** Terpasang di dinding samping tepat sejajar ketinggian telur.
+- **Panel Kontrol Luar:** Layar **LCD 16x4 I2C** dan **Modul Relay 3-Channel**.
+
+### 2. Unit 2: Unit Candling (Ruang Gelap Tertutup / Dark Chamber)
+- **Bodi Ruang Tertutup:** Kotak triplek dengan **interior hitam doff kedap cahaya (*Light-Tight Chamber*)** agar cahaya luar tidak bocor dan tidak mengganggu kontras citra telur.
+- **Pintu Akses Telur:** Pintu flap/engsel kedap cahaya di bagian depan untuk memasukkan telur dan ditutup saat pemotretan.
+- **Corong Karet & Lampu Sorot:** Corong karet fleksibel di meja dalam yang menahan telur, dengan **Lampu Sorot LED HPL 3W-5W** di bawahnya yang menembus telur ke atas.
+- **Kamera Makro ESP32-CAM:** Terpasang di plafon dalam ruang gelap menghadap telur dengan jarak fokus dekat (~10-15 cm).
+- **Panel Operator Luar:** Tombol shutter fisik hijau, buzzer beep, dan saklar daya dipasang di dinding luar agar operator dapat memicu foto dari luar tanpa membuka pintu gelap.
 
 ---
 
@@ -62,11 +71,7 @@ Sistem terbagi menjadi dua unit independen:
 
 ---
 
-## 💻 Simulasi Wokwi
-Proyek ini menyediakan file sirkuit Wokwi yang siap pakai:
-- Sirkuit Penetasan: `esp32_incubator/diagram.json`
-- Sirkuit Candling: `esp32_candling/diagram.json`
-
-Untuk melihat dan menguji simulasi secara visual:
-1. Buka [https://wokwi.com/projects/new/esp32](https://wokwi.com/projects/new/esp32)
-2. Buka tab **diagram.json**, hapus isinya, dan tempelkan isi file `diagram.json` yang ada pada repo ini.
+## 💻 File Simulasi Wokwi & Desain 3D
+- Simulasi Wokwi Penetasan: `esp32_incubator/diagram.json`
+- Simulasi Wokwi Candling: `esp32_candling/diagram.json`
+- File 3D Blender: `desain_3d_penetasan_dan_candling.blend`
