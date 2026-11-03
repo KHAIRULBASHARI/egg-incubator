@@ -559,13 +559,30 @@
                         <div id="llm-content" style="white-space: pre-line;"></div>
                     </div>
 
-                    <!-- Visualizations Gallery -->
+                    <!-- Visualizations Gallery (5 Tahapan Pipeline Computer Vision) -->
                     <div id="ai-vis-container" style="display: none;">
-                        <span style="font-size: 12px; color: var(--text-secondary); font-weight: 600; display: block; margin-bottom: 8px;">PETA PEMBULUH DARAH (COMPUTER VISION):</span>
-                        <div style="display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px;">
-                            <img id="vis-peta" style="height: 70px; border-radius: 6px; border: 1px solid var(--border-color); cursor: pointer;" title="Peta Darah" onclick="showInPreview(this.src)">
-                            <img id="vis-jaringan" style="height: 70px; border-radius: 6px; border: 1px solid var(--border-color); cursor: pointer;" title="Jaringan Darah" onclick="showInPreview(this.src)">
-                            <img id="vis-roi" style="height: 70px; border-radius: 6px; border: 1px solid var(--border-color); cursor: pointer;" title="ROI Telur" onclick="showInPreview(this.src)">
+                        <span style="font-size: 12px; color: var(--text-secondary); font-weight: 600; display: block; margin-bottom: 8px;">5 TAHAP PEMROSESAN COMPUTER VISION (KLIK UNTUK LIHAT):</span>
+                        <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 8px;">
+                            <div style="text-align: center;">
+                                <img id="vis-crop" style="width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 6px; border: 1px solid var(--border-color); cursor: pointer;" title="Tahap 1: Crop & Kontras" onclick="showInPreview(this.src)">
+                                <span style="font-size: 10px; color: var(--text-muted); display: block; margin-top: 4px;">1. Crop Telur</span>
+                            </div>
+                            <div style="text-align: center;">
+                                <img id="vis-roi" style="width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 6px; border: 1px solid var(--border-color); cursor: pointer;" title="Tahap 2: Binerisasi ROI" onclick="showInPreview(this.src)">
+                                <span style="font-size: 10px; color: var(--text-muted); display: block; margin-top: 4px;">2. ROI Biner</span>
+                            </div>
+                            <div style="text-align: center;">
+                                <img id="vis-masked" style="width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 6px; border: 1px solid var(--border-color); cursor: pointer;" title="Tahap 3: Masked RGB" onclick="showInPreview(this.src)">
+                                <span style="font-size: 10px; color: var(--text-muted); display: block; margin-top: 4px;">3. Masked RGB</span>
+                            </div>
+                            <div style="text-align: center;">
+                                <img id="vis-peta" style="width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 6px; border: 1px solid var(--border-color); cursor: pointer;" title="Tahap 4: Peta Darah" onclick="showInPreview(this.src)">
+                                <span style="font-size: 10px; color: var(--text-muted); display: block; margin-top: 4px;">4. Peta Darah</span>
+                            </div>
+                            <div style="text-align: center;">
+                                <img id="vis-jaringan" style="width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 6px; border: 1px solid var(--border-color); cursor: pointer;" title="Tahap 5: Jaringan Vaskular" onclick="showInPreview(this.src)">
+                                <span style="font-size: 10px; color: var(--text-muted); display: block; margin-top: 4px;">5. Vaskular</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -653,7 +670,7 @@
 
                 grid.innerHTML = list.map(item => `
                     <div class="history-item">
-                        <img src="${item.url}" class="history-thumb" alt="Job #${item.id}" onclick="showInPreview('${item.url}', { label: '${item.prediction_label || ''}', confidence: ${item.confidence || 0} })">
+                        <img src="${item.url}" class="history-thumb" alt="Job #${item.id}" onclick="loadJobDetails(${item.id})">
                         <div class="history-meta">
                             <div>
                                 <span class="history-id">#${item.id}</span>
@@ -666,6 +683,20 @@
                 `).join('');
             } catch (err) {
                 console.error(err);
+            }
+        }
+
+        async function loadJobDetails(id) {
+            try {
+                const res = await fetch(`/egg/job/${id}`);
+                if (!res.ok) throw new Error('Job fetch error');
+                const job = await res.json();
+                const pred = job.prediction_result || { label: job.prediction_label, confidence: job.confidence };
+                const vis = job.prediction_result ? job.prediction_result.visualisasi : null;
+                showInPreview(job.url, pred, job.llm_analysis, vis);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            } catch (e) {
+                console.error(e);
             }
         }
 
@@ -726,13 +757,15 @@
                     llmBox.style.display = 'none';
                 }
 
-                // Visualizations
+                // Visualizations (5 Tahap Computer Vision)
                 const visBox = document.getElementById('ai-vis-container');
                 if (vis) {
                     visBox.style.display = 'block';
+                    if (vis.citra_crop) document.getElementById('vis-crop').src = vis.citra_crop;
+                    if (vis.citra_biner_roi) document.getElementById('vis-roi').src = vis.citra_biner_roi;
+                    if (vis.citra_rekonstruksi_rgb) document.getElementById('vis-masked').src = vis.citra_rekonstruksi_rgb;
                     if (vis.citra_peta_darah) document.getElementById('vis-peta').src = vis.citra_peta_darah;
                     if (vis.citra_jaringan_darah) document.getElementById('vis-jaringan').src = vis.citra_jaringan_darah;
-                    if (vis.citra_biner_roi) document.getElementById('vis-roi').src = vis.citra_biner_roi;
                 } else {
                     visBox.style.display = 'none';
                 }
