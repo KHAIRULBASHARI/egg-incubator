@@ -99,9 +99,8 @@ class EggCaptureTest extends TestCase
 
         $job->refresh();
         $this->assertSame('done', $job->status);
-        $this->assertSame("eggs/job-{$job->id}.jpg", $job->image_path);
-
-        Storage::disk('public')->assertExists("eggs/job-{$job->id}.jpg");
+        $this->assertNotNull($job->image_base64);
+        $this->assertStringStartsWith('data:image/jpeg;base64,', $job->image_base64);
     }
 
     public function test_upload_non_jpeg_returns_422(): void

@@ -13,5 +13,7 @@ class CaptureJob extends Model
 
     protected $casts = [
         'taken_at' => 'datetime',
+        'confidence' => 'float',
+        'prediction_result' => 'array',
     ];
 }

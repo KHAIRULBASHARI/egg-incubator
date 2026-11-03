@@ -35,7 +35,11 @@ class EggController extends Controller
     {
         return response()->json([
             'status' => $job->status,
-            'url' => $job->image_path ? Storage::disk('public')->url($job->image_path) : null,
+            'url' => $job->image_base64 ?: ($job->image_path ? Storage::disk('public')->url($job->image_path) : null),
+            'prediction_label' => $job->prediction_label,
+            'confidence' => $job->confidence,
+            'prediction_result' => $job->prediction_result,
+            'llm_analysis' => $job->llm_analysis,
         ]);
     }
 
@@ -50,7 +54,9 @@ class EggController extends Controller
             ->get()
             ->map(fn ($j) => [
                 'id' => $j->id,
-                'url' => Storage::disk('public')->url($j->image_path),
+                'url' => $j->image_base64 ?: ($j->image_path ? Storage::disk('public')->url($j->image_path) : null),
+                'prediction_label' => $j->prediction_label,
+                'confidence' => $j->confidence,
                 'at' => $j->updated_at->toIso8601String(),
             ]);
 

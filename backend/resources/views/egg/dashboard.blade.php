@@ -501,10 +501,10 @@
                 </div>
             </section>
 
-            <!-- Right Panel: Preview -->
+            <!-- Right Panel: Preview & AI Analysis -->
             <section class="card">
                 <div class="card-header">
-                    <h2 class="card-title">🖼️ Hasil Tangkapan</h2>
+                    <h2 class="card-title">🖼️ Hasil Tangkapan & Analisis AI</h2>
                 </div>
 
                 <div class="preview-container">
@@ -517,9 +517,62 @@
                     <img id="preview-image" class="preview-img" alt="Captured Egg">
                 </div>
 
+                <!-- AI NN Prediction Result Box -->
+                <div id="ai-result-box" style="display: none; margin-top: 20px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 18px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+                        <span style="font-size: 13px; color: var(--text-secondary); font-weight: 600;">HASIL KLASIFIKASI MODEL NN</span>
+                        <span id="ai-badge" style="padding: 4px 14px; border-radius: 9999px; font-weight: 700; font-size: 13px; text-transform: uppercase;">-</span>
+                    </div>
+
+                    <!-- Probabilities -->
+                    <div style="margin-bottom: 16px;">
+                        <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px;">
+                            <span>Tingkat Keyakinan (Confidence)</span>
+                            <strong id="ai-confidence" style="color: var(--primary);">-</strong>
+                        </div>
+                        <div style="width: 100%; height: 8px; background: var(--bg-input); border-radius: 4px; overflow: hidden;">
+                            <div id="ai-confidence-bar" style="height: 100%; width: 0%; background: var(--primary); transition: width 0.5s ease;"></div>
+                        </div>
+                    </div>
+
+                    <!-- Probability Bars Breakdown -->
+                    <div id="ai-breakdown" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; font-size: 11px; text-align: center; margin-bottom: 16px;">
+                        <div style="background: var(--bg-surface); padding: 6px; border-radius: 6px;">
+                            <div style="color: #2ca02c; font-weight: 600;">Fertil</div>
+                            <div id="prob-fertil">-</div>
+                        </div>
+                        <div style="background: var(--bg-surface); padding: 6px; border-radius: 6px;">
+                            <div style="color: #1f77b4; font-weight: 600;">Infertil</div>
+                            <div id="prob-infertil">-</div>
+                        </div>
+                        <div style="background: var(--bg-surface); padding: 6px; border-radius: 6px;">
+                            <div style="color: #d62728; font-weight: 600;">Mortal</div>
+                            <div id="prob-mortal">-</div>
+                        </div>
+                    </div>
+
+                    <!-- LLM Expert Analysis Box -->
+                    <div id="llm-box" style="display: none; background: rgba(56, 189, 248, 0.08); border-left: 3px solid var(--info); padding: 12px 14px; border-radius: 0 8px 8px 0; font-size: 13px; line-height: 1.6; color: var(--text-primary); margin-bottom: 16px;">
+                        <div style="display: flex; align-items: center; gap: 6px; font-weight: 700; color: var(--info); margin-bottom: 6px;">
+                            <span>🧠 Analisis Pakar AI (LLM Vision)</span>
+                        </div>
+                        <div id="llm-content" style="white-space: pre-line;"></div>
+                    </div>
+
+                    <!-- Visualizations Gallery -->
+                    <div id="ai-vis-container" style="display: none;">
+                        <span style="font-size: 12px; color: var(--text-secondary); font-weight: 600; display: block; margin-bottom: 8px;">PETA PEMBULUH DARAH (COMPUTER VISION):</span>
+                        <div style="display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px;">
+                            <img id="vis-peta" style="height: 70px; border-radius: 6px; border: 1px solid var(--border-color); cursor: pointer;" title="Peta Darah" onclick="showInPreview(this.src)">
+                            <img id="vis-jaringan" style="height: 70px; border-radius: 6px; border: 1px solid var(--border-color); cursor: pointer;" title="Jaringan Darah" onclick="showInPreview(this.src)">
+                            <img id="vis-roi" style="height: 70px; border-radius: 6px; border: 1px solid var(--border-color); cursor: pointer;" title="ROI Telur" onclick="showInPreview(this.src)">
+                        </div>
+                    </div>
+                </div>
+
                 <div class="preview-actions">
-                    <a id="btn-download" class="btn-action btn-download" style="display: none;" download="egg-capture.jpg">
-                        ⬇️ Download Foto
+                    <a id="btn-download" class="btn-action btn-download" style="display: none;" download="egg-candling.jpg">
+                        ⬇️ Unduh Foto
                     </a>
                 </div>
             </section>
@@ -556,7 +609,7 @@
         // Device Status Polling (every 5 seconds)
         async function checkStatus() {
             try {
-                const res = await fetch('{{ route('egg.status') }}');
+                const res = await fetch('/egg/status');
                 if (!res.ok) throw new Error('Status error');
                 const data = await res.json();
 
@@ -588,7 +641,7 @@
         // History Loader
         async function loadHistory() {
             try {
-                const res = await fetch('{{ route('egg.history') }}');
+                const res = await fetch('/egg/history');
                 if (!res.ok) throw new Error('History error');
                 const list = await res.json();
 
@@ -600,10 +653,11 @@
 
                 grid.innerHTML = list.map(item => `
                     <div class="history-item">
-                        <img src="${item.url}" class="history-thumb" alt="Job #${item.id}" onclick="showInPreview('${item.url}')">
+                        <img src="${item.url}" class="history-thumb" alt="Job #${item.id}" onclick="showInPreview('${item.url}', { label: '${item.prediction_label || ''}', confidence: ${item.confidence || 0} })">
                         <div class="history-meta">
                             <div>
                                 <span class="history-id">#${item.id}</span>
+                                ${item.prediction_label ? `<span style="margin-left: 6px; font-size: 10px; padding: 2px 6px; border-radius: 4px; background: ${item.prediction_label === 'fertil' ? '#2ca02c' : (item.prediction_label === 'infertil' ? '#1f77b4' : '#d62728')}; color: white; text-transform: uppercase; font-weight: 700;">${item.prediction_label}</span>` : ''}
                                 <div style="color: var(--text-muted);">${new Date(item.at).toLocaleTimeString()}</div>
                             </div>
                             <a href="${item.url}" download="egg-${item.id}.jpg" class="history-dl">Unduh</a>
@@ -617,7 +671,7 @@
 
         loadHistory();
 
-        function showInPreview(url) {
+        function showInPreview(url, prediction = null, llm = null, vis = null) {
             const img = document.getElementById('preview-image');
             const placeholder = document.getElementById('preview-placeholder');
             const btnDownload = document.getElementById('btn-download');
@@ -627,6 +681,62 @@
             placeholder.style.display = 'none';
             btnDownload.href = url;
             btnDownload.style.display = 'inline-flex';
+
+            const resultBox = document.getElementById('ai-result-box');
+            if (prediction) {
+                resultBox.style.display = 'block';
+                const badge = document.getElementById('ai-badge');
+                const confText = document.getElementById('ai-confidence');
+                const confBar = document.getElementById('ai-confidence-bar');
+
+                const label = (prediction.label || '-').toLowerCase();
+                badge.textContent = label;
+
+                if (label === 'fertil') {
+                    badge.style.background = '#2ca02c';
+                    badge.style.color = '#fff';
+                } else if (label === 'infertil') {
+                    badge.style.background = '#1f77b4';
+                    badge.style.color = '#fff';
+                } else if (label === 'mortal') {
+                    badge.style.background = '#d62728';
+                    badge.style.color = '#fff';
+                } else {
+                    badge.style.background = 'var(--text-muted)';
+                    badge.style.color = '#fff';
+                }
+
+                const conf = Math.round((prediction.keyakinan || prediction.confidence || 0) * 100);
+                confText.textContent = `${conf}%`;
+                confBar.style.width = `${conf}%`;
+
+                if (prediction.probabilitas) {
+                    document.getElementById('prob-fertil').textContent = `${Math.round((prediction.probabilitas.fertil || 0) * 100)}%`;
+                    document.getElementById('prob-infertil').textContent = `${Math.round((prediction.probabilitas.infertil || 0) * 100)}%`;
+                    document.getElementById('prob-mortal').textContent = `${Math.round((prediction.probabilitas.mortal || 0) * 100)}%`;
+                }
+
+                // LLM Box
+                const llmBox = document.getElementById('llm-box');
+                const llmContent = document.getElementById('llm-content');
+                if (llm) {
+                    llmBox.style.display = 'block';
+                    llmContent.textContent = llm;
+                } else {
+                    llmBox.style.display = 'none';
+                }
+
+                // Visualizations
+                const visBox = document.getElementById('ai-vis-container');
+                if (vis) {
+                    visBox.style.display = 'block';
+                    if (vis.citra_peta_darah) document.getElementById('vis-peta').src = vis.citra_peta_darah;
+                    if (vis.citra_jaringan_darah) document.getElementById('vis-jaringan').src = vis.citra_jaringan_darah;
+                    if (vis.citra_biner_roi) document.getElementById('vis-roi').src = vis.citra_biner_roi;
+                } else {
+                    visBox.style.display = 'none';
+                }
+            }
         }
 
         // Capture Job Dispatch & Tracker
@@ -662,7 +772,7 @@
                     settle_ms: parseInt(document.getElementById('slider-settle').value, 10)
                 };
 
-                const res = await fetch('{{ route('egg.capture') }}', {
+                const res = await fetch('/egg/capture', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -704,9 +814,11 @@
                     } else if (job.status === 'taken') {
                         trackerMsg.textContent = 'ESP sedang Mengambil Foto...';
                     } else if (job.status === 'done') {
-                        stopTracking(true, 'Pengambilan Foto Selesai!');
+                        stopTracking(true, 'Pengambilan Foto & Analisis Selesai!');
                         if (job.url) {
-                            showInPreview(job.url);
+                            const pred = job.prediction_result || { label: job.prediction_label, confidence: job.confidence };
+                            const vis = job.prediction_result ? job.prediction_result.visualisasi : null;
+                            showInPreview(job.url, pred, job.llm_analysis, vis);
                         }
                         loadHistory();
                     } else if (job.status === 'failed') {
