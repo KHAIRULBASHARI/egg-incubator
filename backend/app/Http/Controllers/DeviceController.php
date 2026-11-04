@@ -103,44 +103,108 @@ class DeviceController extends Controller
             Log::warning('Gagal memanggil API Candling NN: '.$e->getMessage());
         }
 
-        // 2. Kirim ke LLM Router untuk penjelasan mendalam
+        // 2. Kirim ke LLM Router untuk penjelasan mendalam sesuai SPESIFIKASI AGENT LLM
         $llmAnalysis = null;
         try {
             $llmUrl = config('services.candling.llm_url', 'https://router.walker880.my.id/v1/chat/completions');
             $llmKey = config('services.candling.llm_key', 'sk-87fb2556b4e913ec-035612-de0e95de');
-            $llmModel = config('services.candling.llm_model', 'antigravity/gemini-3.1-flash-lite');
+            $llmModel = config('services.candling.llm_model', 'antigravity/gemini-3.8-flash-tiered');
 
             $labelDesc = $aiLabel ? strtoupper($aiLabel) : 'Tidak terdeteksi';
-            $confDesc = $aiConfidence ? round($aiConfidence * 100, 2).'%' : '-';
+            $confDesc = $aiConfidence !== null ? round($aiConfidence * 100, 2).'%' : '-';
 
-            $prompt = "Kamu adalah dokter pakar penetasan telur ayam dan computer vision. Hasil deteksi Neural Network menunjukkan telur ini: [{$labelDesc}] dengan keyakinan [{$confDesc}]. Berikan analisis singkat dan akurat dalam bahasa Indonesia (maksimal 3 poin): 1. Kondisi embrio dan pembuluh darah pada citra candling. 2. Rekomendasi apakah telur layak diteruskan inkubasi atau harus disortir. 3. Tips optimalisasi candling/inkubasi.";
+            $probText = '';
+            if (! empty($aiResult['probabilitas_persen'])) {
+                foreach ($aiResult['probabilitas_persen'] as $k => $v) {
+                    $probText .= '- Probabilitas '.ucfirst($k).": {$v}\n";
+                }
+            } elseif (! empty($aiResult['probabilitas'])) {
+                foreach ($aiResult['probabilitas'] as $k => $v) {
+                    $pct = round(((float) $v) * 100, 2).'%';
+                    $probText .= '- Probabilitas '.ucfirst($k).": {$pct}\n";
+                }
+            } else {
+                $probText = "- Keyakinan: {$confDesc}\n";
+            }
+
+            $segStatus = 'Sukses';
+            if (! empty($aiResult['kualitas']['roi_mode'])) {
+                $segStatus .= ' ('.$aiResult['kualitas']['roi_mode'].')';
+            }
+            if (! empty($aiResult['kualitas']['peringatan'])) {
+                $segStatus .= ' | Catatan: '.implode(', ', $aiResult['kualitas']['peringatan']);
+            }
+
+            $systemPrompt = "Anda adalah Agen Diagnostik Candling Telur yang bertugas menganalisis status fertilitas dan viabilitas embrio telur unggas.\n\n"
+                ."Tugas Anda:\n"
+                ."1. Menerima hasil prediksi Neural Network (label, probabilitas, analisis citra) serta gambar hasil candling.\n"
+                ."2. Memberikan penjelasan deskriptif yang ilmiah, tepat sasaran, dan mudah dipahami peternak mengenai kondisi telur tersebut.\n"
+                ."3. Menjelaskan tanda-tanda visual spesifik yang teramati pada citra sesuai dataset acuan:\n"
+                ."   - Fertil: Terdapat struktur jaring pembuluh darah aktif, titik embrio hidup, atau rongga gelap masif pada fase mendekati menetas.\n"
+                ."   - Infertil: Bening merata, tembus cahaya, tidak ada jaring pembuluh darah maupun noda embrio.\n"
+                ."   - Mortal: Terdapat cincin darah (blood ring), pembuluh darah yang runtuh, atau gumpalan embrio mati yang menghitam di bagian tengah tanpa percabangan pembuluh aktif.\n"
+                ."4. Menyebutkan nilai probabilitas model secara akurat sebagai tingkat keyakinan sistem.\n"
+                ."5. Memberikan instruksi manajemen inkubasi yang konkret.\n\n"
+                ."Aturan Penulisan:\n"
+                ."- Jangan menggunakan emotikon dalam bentuk apa pun.\n"
+                ."- Jangan membahas topik di luar biologi telur, inkubasi, dan pengolahan citra candling.\n"
+                ."- Gunakan format terstruktur: Diagnosis, Analisis Visual, Alasan Probabilitas, dan Rekomendasi Tindakan.";
+
+            $userPrompt = "Data Model:\n"
+                ."- Label Prediksi: {$labelDesc}\n"
+                .$probText
+                ."- Status Segmentasi: {$segStatus}\n"
+                ."- Citra Terlampir: Citra candling dan visualisasi rekonstruksi jaringan terlampir.\n\n"
+                ."Instruksi: Berikan penjelasan diagnostik telur ini.";
+
+            $userContents = [
+                ['type' => 'text', 'text' => $userPrompt],
+                [
+                    'type' => 'image_url',
+                    'image_url' => ['url' => $base64Image],
+                ],
+            ];
+
+            if (! empty($aiResult['visualisasi']['citra_rekonstruksi_rgb'])) {
+                $userContents[] = [
+                    'type' => 'image_url',
+                    'image_url' => ['url' => 'data:image/jpeg;base64,'.$aiResult['visualisasi']['citra_rekonstruksi_rgb']],
+                ];
+            }
+
+            if (! empty($aiResult['visualisasi']['citra_jaringan_darah'])) {
+                $userContents[] = [
+                    'type' => 'image_url',
+                    'image_url' => ['url' => 'data:image/jpeg;base64,'.$aiResult['visualisasi']['citra_jaringan_darah']],
+                ];
+            }
 
             $llmPayload = [
                 'model' => $llmModel,
                 'messages' => [
                     [
+                        'role' => 'system',
+                        'content' => $systemPrompt,
+                    ],
+                    [
                         'role' => 'user',
-                        'content' => [
-                            ['type' => 'text', 'text' => $prompt],
-                            [
-                                'type' => 'image_url',
-                                'image_url' => ['url' => $base64Image],
-                            ],
-                        ],
+                        'content' => $userContents,
                     ],
                 ],
-                'max_tokens' => 450,
+                'max_tokens' => 800,
             ];
 
-            $llmResponse = Http::timeout(60)
+            $llmResponse = Http::timeout(120)
                 ->withToken($llmKey)
                 ->post($llmUrl, $llmPayload);
 
             if ($llmResponse->successful()) {
                 $llmAnalysis = $llmResponse->json('choices.0.message.content');
+            } else {
+                Log::error('LLM Router non-200: '.$llmResponse->status().' - '.$llmResponse->body());
             }
         } catch (\Throwable $e) {
-            Log::warning('Gagal memanggil LLM Router: '.$e->getMessage());
+            Log::error('Gagal memanggil LLM Router: '.$e->getMessage());
         }
 
         // Simpan hasil klasifikasi & gambar sementara via base64 tanpa menyimpan file fisik ke disk
