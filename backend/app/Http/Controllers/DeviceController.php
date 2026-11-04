@@ -157,25 +157,25 @@ class DeviceController extends Controller
                 ."- Citra Terlampir: Citra candling dan visualisasi rekonstruksi jaringan terlampir.\n\n"
                 ."Instruksi: Berikan penjelasan diagnostik telur ini.";
 
+            $ensureDataUri = function ($img) {
+                if (! str_starts_with($img, 'data:image/')) {
+                    return 'data:image/jpeg;base64,'.$img;
+                }
+                return $img;
+            };
+
             $userContents = [
                 ['type' => 'text', 'text' => $userPrompt],
                 [
                     'type' => 'image_url',
-                    'image_url' => ['url' => $base64Image],
+                    'image_url' => ['url' => $ensureDataUri($base64Image)],
                 ],
             ];
-
-            if (! empty($aiResult['visualisasi']['citra_rekonstruksi_rgb'])) {
-                $userContents[] = [
-                    'type' => 'image_url',
-                    'image_url' => ['url' => 'data:image/jpeg;base64,'.$aiResult['visualisasi']['citra_rekonstruksi_rgb']],
-                ];
-            }
 
             if (! empty($aiResult['visualisasi']['citra_jaringan_darah'])) {
                 $userContents[] = [
                     'type' => 'image_url',
-                    'image_url' => ['url' => 'data:image/jpeg;base64,'.$aiResult['visualisasi']['citra_jaringan_darah']],
+                    'image_url' => ['url' => $ensureDataUri($aiResult['visualisasi']['citra_jaringan_darah'])],
                 ];
             }
 
@@ -194,7 +194,7 @@ class DeviceController extends Controller
                 'max_tokens' => 800,
             ];
 
-            $llmResponse = Http::timeout(120)
+            $llmResponse = Http::timeout(180)
                 ->withToken($llmKey)
                 ->post($llmUrl, $llmPayload);
 

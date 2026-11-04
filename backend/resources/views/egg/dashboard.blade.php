@@ -552,11 +552,11 @@
                     </div>
 
                     <!-- LLM Expert Analysis Box -->
-                    <div id="llm-box" style="display: none; background: rgba(56, 189, 248, 0.08); border-left: 3px solid var(--info); padding: 12px 14px; border-radius: 0 8px 8px 0; font-size: 13px; line-height: 1.6; color: var(--text-primary); margin-bottom: 16px;">
-                        <div style="display: flex; align-items: center; gap: 6px; font-weight: 700; color: var(--info); margin-bottom: 6px;">
+                    <div id="llm-box" style="display: none; background: rgba(56, 189, 248, 0.08); border-left: 3px solid var(--info); padding: 14px 16px; border-radius: 0 8px 8px 0; font-size: 13px; line-height: 1.6; color: var(--text-primary); margin-bottom: 16px;">
+                        <div style="display: flex; align-items: center; gap: 6px; font-weight: 700; color: var(--info); margin-bottom: 8px;">
                             <span>🧠 Analisis Pakar AI (LLM Vision)</span>
                         </div>
-                        <div id="llm-content" style="white-space: pre-line;"></div>
+                        <div id="llm-content" style="white-space: pre-wrap; font-family: inherit;"></div>
                     </div>
 
                     <!-- Visualizations Gallery (5 Tahapan Pipeline Computer Vision) -->
@@ -832,8 +832,8 @@
             pollInterval = setInterval(async () => {
                 const elapsed = Math.floor((Date.now() - startTime) / 1000);
 
-                if (elapsed > 60) {
-                    stopTracking(false, 'Timeout: ESP tidak menyelesaikan pengambilan dalam 60 detik.');
+                if (elapsed > 120) {
+                    stopTracking(false, 'Timeout: ESP atau analisis LLM belum selesai dalam 120 detik.');
                     return;
                 }
 
