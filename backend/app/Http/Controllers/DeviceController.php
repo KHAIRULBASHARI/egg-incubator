@@ -135,27 +135,38 @@ class DeviceController extends Controller
                 $segStatus .= ' | Catatan: '.implode(', ', $aiResult['kualitas']['peringatan']);
             }
 
-            $systemPrompt = "Anda adalah Agen Diagnostik Candling Telur yang bertugas menganalisis status fertilitas dan viabilitas embrio telur unggas.\n\n"
+            $systemPrompt = "Anda adalah Asisten Ahli Candling Telur yang bertugas memberikan penjelasan hasil peneropongan telur kepada peternak.\n\n"
                 ."Tugas Anda:\n"
-                ."1. Menerima hasil prediksi Neural Network (label, probabilitas, analisis citra) serta gambar hasil candling.\n"
-                ."2. Memberikan penjelasan deskriptif yang ilmiah, tepat sasaran, dan mudah dipahami peternak mengenai kondisi telur tersebut.\n"
-                ."3. Menjelaskan tanda-tanda visual spesifik yang teramati pada citra sesuai dataset acuan:\n"
-                ."   - Fertil: Terdapat struktur jaring pembuluh darah aktif, titik embrio hidup, atau rongga gelap masif pada fase mendekati menetas.\n"
-                ."   - Infertil: Bening merata, tembus cahaya, tidak ada jaring pembuluh darah maupun noda embrio.\n"
-                ."   - Mortal: Terdapat cincin darah (blood ring), pembuluh darah yang runtuh, atau gumpalan embrio mati yang menghitam di bagian tengah tanpa percabangan pembuluh aktif.\n"
-                ."4. Menyebutkan nilai probabilitas model secara akurat sebagai tingkat keyakinan sistem.\n"
-                ."5. Memberikan instruksi manajemen inkubasi yang konkret.\n\n"
-                ."Aturan Penulisan:\n"
-                ."- Jangan menggunakan emotikon dalam bentuk apa pun.\n"
-                ."- Jangan membahas topik di luar biologi telur, inkubasi, dan pengolahan citra candling.\n"
-                ."- Gunakan format terstruktur: Diagnosis, Analisis Visual, Alasan Probabilitas, dan Rekomendasi Tindakan.";
+                ."1. Menjelaskan kondisi telur berdasarkan foto candling dan hasil deteksi model secara jelas, praktis, dan mudah dipahami orang awam atau peternak.\n"
+                ."2. Gunakan bahasa peternakan yang sederhana dan komunikatif. HINDARI istilah ilmiah atau teknis yang rumit (jangan gunakan istilah seperti translusensi, homogenitas, mottling, convex hull, dekomposisi, vaskularisasi). Ganti dengan bahasa sederhana seperti telur bening, urat darah merah, bintik pori cangkang, embrio hidup, cincin darah.\n"
+                ."3. Jelaskan kondisi visual yang tampak:\n"
+                ."   - Fertil: Terlihat urat darah menyerupai jaring laba-laba dan titik embrio hidup, atau tampak gelap pekat menjelang menetas.\n"
+                ."   - Infertil: Telur tampak terang dan bening tembus cahaya, hanya terlihat bayangan kuning telur tanpa urat darah.\n"
+                ."   - Mortal: Terlihat cincin darah melingkar, urat darah rusak atau pecah, atau noda hitam embrio mati yang mengambang.\n"
+                ."4. Sebutkan angka persentase keyakinan secara jelas.\n"
+                ."5. Berikan instruksi tindakan praktis bagi peternak (apakah tetap dierami atau segera dikeluarkan dari rak mesin tetas).\n\n"
+                ."Aturan Penulisan (SANGAT KETAT):\n"
+                ."- Dilarang keras menggunakan simbol Markdown: JANGAN gunakan tanda pagar (#), JANGAN gunakan garis pembatas (---), JANGAN gunakan tanda bintang (*) untuk tebal atau miring.\n"
+                ."- Dilarang menggunakan emoji atau emotikon apa pun.\n"
+                ."- Tuliskan jawaban dalam teks polos yang bersih dengan struktur penomoran berikut:\n\n"
+                ."DIAGNOSIS: [STATUS TELUR]\n\n"
+                ."1. Ringkasan:\n"
+                ."(Uraian singkat status dan angka keyakinan)\n\n"
+                ."2. Kondisi Tampilan Telur:\n"
+                ."- (Keterangan tembus cahaya)\n"
+                ."- (Keterangan urat darah atau embrio)\n"
+                ."- (Keterangan kondisi cangkang atau noda)\n\n"
+                ."3. Alasan Hasil:\n"
+                ."(Penjelasan mudah dipahami mengapa telur dinilai demikian)\n\n"
+                ."4. Tindakan untuk Peternak:\n"
+                ."- (Langkah yang harus dilakukan peternak)\n"
+                ."- (Tips perawatan mesin tetas atau pemanfaatan telur)";
 
-            $userPrompt = "Data Model:\n"
-                ."- Label Prediksi: {$labelDesc}\n"
+            $userPrompt = "Data Deteksi:\n"
+                ."- Status: {$labelDesc}\n"
                 .$probText
-                ."- Status Segmentasi: {$segStatus}\n"
-                ."- Citra Terlampir: Citra candling dan visualisasi rekonstruksi jaringan terlampir.\n\n"
-                ."Instruksi: Berikan penjelasan diagnostik telur ini.";
+                ."- Citra candling telur terlampir.\n\n"
+                ."Instruksi: Berikan penjelasan hasil peneropongan telur ini sesuai format teks polos tanpa markdown dan tanpa emoji.";
 
             $ensureDataUri = function ($img) {
                 if (! str_starts_with($img, 'data:image/')) {
