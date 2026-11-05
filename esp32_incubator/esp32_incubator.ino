@@ -22,6 +22,8 @@
 #include <LiquidCrystal_I2C.h>
 #include "DHT.h"
 #include "esp_log.h"
+#include "soc/soc.h"
+#include "soc/rtc_cntl_reg.h"
 
 // ─── 1. KREDENSIAL & KONFIGURASI CLOUD ──────────────────────────────────────────────
 #if __has_include("secrets.h")
@@ -48,19 +50,21 @@ const char* UPLOAD_ENDPOINT = "/api/incubator/upload";
 const unsigned long AUTO_UPLOAD_INTERVAL = 20000;
 
 // ─── 2. PIN DEFINITION (AI-THINKER ESP32-CAM) ───────────────────────────────────────
-#define PIN_I2C_SDA      13   // SDA LCD I2C
-#define PIN_I2C_SCL      14   // SCL LCD I2C
-#define PIN_DHT          16   // Data pin DHT22
-#define PIN_RELAY_HEATER 15   // Relay 1: Lampu Pemanas AC 220V (Active LOW)
-#define PIN_RELAY_MOTOR  2    // Relay 2: Dinamo Pembalik Telur (Active LOW)
-#define PIN_RELAY_FAN    12   // Relay 3: Kipas Sirkulasi / Buang (Active LOW)
-#define PIN_FLASH_LED    4    // High-power Flash LED bawaan AI-Thinker (Active HIGH)
+// Sesuai konfigurasi hardware:
+// SDA = 14, SCL = 13, DHT = 15, RELAY_LAMP = 4, RELAY_MOTOR = 2 (Active HIGH)
+#define PIN_I2C_SDA      14   // SDA LCD I2C
+#define PIN_I2C_SCL      13   // SCL LCD I2C
+#define PIN_DHT          15   // Data pin DHT22 (GPIO 15)
+#define PIN_RELAY_HEATER 4    // Relay 1: Lampu Pemanas (GPIO 4, Active HIGH, berbagi dgn Flash LED)
+#define PIN_RELAY_MOTOR  2    // Relay 2: Dinamo Pembalik Telur (GPIO 2, Active HIGH)
+#define PIN_RELAY_FAN    -1   // Kipas nonaktif / opsional (-1 jika tidak dipakai)
+#define PIN_FLASH_LED    4    // Flash LED (GPIO 4)
 
 #define DHTTYPE          DHT22
 
-// Modul Relay Active LOW (LOW = ON, HIGH = OFF)
-#define RELAY_ON         LOW
-#define RELAY_OFF        HIGH
+// Modul Relay Active HIGH (HIGH = ON, LOW = OFF)
+#define RELAY_ON         HIGH
+#define RELAY_OFF        LOW
 
 // Kamera AI-Thinker OV2640 / OV3660
 #define PWDN_GPIO_NUM    32
@@ -84,13 +88,13 @@ const unsigned long AUTO_UPLOAD_INTERVAL = 20000;
 #define MAX_TRIES        3    // Maksimum percobaan capture saat frame cacat
 
 // ─── 3. PARAMETER & VARIABEL KONTROL INKUBATOR ──────────────────────────────────────
-float tempSetpointMin = 37.5; // Batas bawah lampu ON (°C)
+float tempSetpointMin = 37.0; // Batas bawah lampu ON (°C)
 float tempSetpointMax = 38.0; // Batas atas lampu OFF (°C)
-float tempFanTrigger  = 38.2; // Batas atas kipas aktif (°C)
+String lampMode       = "auto"; // "auto", "on", "off" dari kontrol jarak jauh cloud
 
-// Interval Pembalikan Telur (Default: Tiap 3 jam sekali, motor menyala 12 detik)
-unsigned long motorIntervalMs = 3UL * 60UL * 60UL * 1000UL; // 3 jam
-unsigned long motorDurationMs = 12000UL;                    // 12 detik
+// Interval Pembalikan Telur (Default: Tiap 4 jam sekali, motor menyala 15 detik)
+unsigned long motorIntervalMs = 4UL * 60UL * 60UL * 1000UL; // 4 jam
+unsigned long motorDurationMs = 15000UL;                    // 15 detik
 unsigned long lastMotorTurn   = 0;
 bool isMotorRunning           = false;
 unsigned long motorStartTime  = 0;
@@ -100,6 +104,10 @@ float currentTemp = 0.0;
 float currentHum  = 0.0;
 bool heaterState  = false;
 bool fanState     = false;
+
+// Kontrol Jarak Jauh Cloud
+unsigned long lastControlPoll = 0;
+const unsigned long CONTROL_POLL_MS = 3500; // Polling cloud tiap 3.5 detik
 
 // Kontrol LED Flash
 bool flashLedAuto    = true;  // Flash menyala otomatis saat capture/upload
@@ -143,30 +151,34 @@ void triggerMotorTurn() {
 }
 
 void updateThermostat() {
-  if (isnan(currentTemp) || currentTemp <= 0) return;
-
-  // Kontrol Pemanas (Heater) dengan Histeresis
-  if (currentTemp < tempSetpointMin) {
-    digitalWrite(PIN_RELAY_HEATER, RELAY_ON);
-    heaterState = true;
-  } else if (currentTemp >= tempSetpointMax) {
+  if (isnan(currentTemp) || currentTemp <= 0) {
     digitalWrite(PIN_RELAY_HEATER, RELAY_OFF);
     heaterState = false;
+    return;
   }
 
-  // Kontrol Kipas Pendingin / Sirkulasi jika suhu terlalu tinggi
-  if (currentTemp >= tempFanTrigger) {
-    digitalWrite(PIN_RELAY_FAN, RELAY_ON);
-    fanState = true;
+  // Kontrol Pemanas Lampu (Mode Jarak Jauh: auto, on, off)
+  if (lampMode == "on") {
+    digitalWrite(PIN_RELAY_HEATER, RELAY_ON);
+    heaterState = true;
+  } else if (lampMode == "off") {
+    digitalWrite(PIN_RELAY_HEATER, RELAY_OFF);
+    heaterState = false;
   } else {
-    digitalWrite(PIN_RELAY_FAN, RELAY_OFF);
-    fanState = false;
+    // Mode Auto: Histeresis Suhu
+    if (currentTemp < tempSetpointMin) {
+      digitalWrite(PIN_RELAY_HEATER, RELAY_ON);
+      heaterState = true;
+    } else if (currentTemp >= tempSetpointMax) {
+      digitalWrite(PIN_RELAY_HEATER, RELAY_OFF);
+      heaterState = false;
+    }
   }
 
   // Kontrol Timer Pembalik Telur Terjadwal
   unsigned long now = millis();
   if (!isMotorRunning) {
-    if (now - lastMotorTurn >= motorIntervalMs) {
+    if (motorIntervalMs > 0 && (now - lastMotorTurn >= motorIntervalMs)) {
       triggerMotorTurn();
     }
   } else {
@@ -177,6 +189,65 @@ void updateThermostat() {
       Serial.println("[MOTOR] Pembalik telur SELESAI berputar.");
     }
   }
+}
+
+// ─── 5B. KONTROL JARAK JAUH VIA CLOUD API ───────────────────────────────────────────
+void applyCloudCommands(const String &json) {
+  if (json.indexOf("\"lampMode\":\"on\"") >= 0) lampMode = "on";
+  else if (json.indexOf("\"lampMode\":\"off\"") >= 0) lampMode = "off";
+  else if (json.indexOf("\"lampMode\":\"auto\"") >= 0) lampMode = "auto";
+
+  if (json.indexOf("\"motorManualRequest\":true") >= 0) {
+    triggerMotorTurn();
+  }
+
+  int idx = json.indexOf("\"tempMin\":");
+  if (idx >= 0) {
+    float v = json.substring(idx + 10).toFloat();
+    if (v >= 30.0f && v <= 45.0f) tempSetpointMin = v;
+  }
+
+  idx = json.indexOf("\"tempMax\":");
+  if (idx >= 0) {
+    float v = json.substring(idx + 10).toFloat();
+    if (v >= 30.0f && v <= 45.0f) tempSetpointMax = v;
+  }
+
+  idx = json.indexOf("\"motorIntervalHours\":");
+  if (idx >= 0) {
+    int v = json.substring(idx + 21).toInt();
+    if (v > 0 && v <= 24) motorIntervalMs = (unsigned long)v * 3600000UL;
+  }
+
+  idx = json.indexOf("\"motorDurationSeconds\":");
+  if (idx >= 0) {
+    int v = json.substring(idx + 23).toInt();
+    if (v > 0 && v <= 180) motorDurationMs = (unsigned long)v * 1000UL;
+  }
+}
+
+void pollCloudControl() {
+  if (WiFi.status() != WL_CONNECTED || uploadInProgress) return;
+
+  WiFiClientSecure sclient;
+  WiFiClient pclient;
+  HTTPClient http;
+
+  String controlUrl = String(SERVER_URL) + "/api/incubator/control";
+  if (useTls()) {
+    sclient.setInsecure();
+    http.begin(sclient, controlUrl);
+  } else {
+    http.begin(pclient, controlUrl);
+  }
+
+  http.setTimeout(4000);
+  int code = http.GET();
+  if (code == 200) {
+    String payload = http.getString();
+    applyCloudCommands(payload);
+  }
+  http.end();
 }
 
 // ─── 6. MANAJEMEN & TUNING KAMERA (OV2640 / OV3660) ─────────────────────────────────
@@ -400,15 +471,19 @@ bool captureAndUploadFrame() {
   http.addHeader("Content-Type", "image/jpeg");
   http.addHeader("X-Device-Key", DEVICE_KEY);
   http.addHeader("X-RSSI", String(WiFi.RSSI()));
-  http.addHeader("X-Temperature", String(currentTemp, 2));
+  http.addHeader("X-Temp", String(currentTemp, 1));
   http.addHeader("X-Humidity", String(currentHum, 1));
-  http.addHeader("X-Heater", heaterState ? "1" : "0");
-  http.addHeader("X-Fan", fanState ? "1" : "0");
+  http.addHeader("X-Lamp", heaterState ? "1" : "0");
   http.addHeader("X-Motor", isMotorRunning ? "1" : "0");
 
   unsigned long tStart = millis();
   int code = http.POST(buffer, len);
   unsigned long duration = millis() - tStart;
+
+  if (code == 200 || code == 201) {
+    String resp = http.getString();
+    applyCloudCommands(resp);
+  }
   http.end();
 
   free(buffer);
@@ -426,7 +501,6 @@ bool captureAndUploadFrame() {
 // FreeRTOS Background Task untuk upload non-blocking
 void uploadWorkerTask(void *pvParameters) {
   for (;;) {
-    // Menunggu sinyal trigger dari loop()
     ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
     uploadInProgress = true;
     captureAndUploadFrame();
@@ -653,12 +727,13 @@ void updateLcd() {
     lcd.print("%  ");
   }
 
-  // Baris 1: Status Heater & Kipas
+  // Baris 1: Status Heater & Mode
   lcd.setCursor(0, 1);
-  lcd.print("Heat:");
+  lcd.print("Lamp:");
   lcd.print(heaterState ? "ON " : "OFF");
-  lcd.print(" Fan:");
-  lcd.print(fanState ? "ON " : "OFF");
+  lcd.print(" [");
+  lcd.print(lampMode);
+  lcd.print("]    ");
 
   // Baris 2: Status Dinamo Pembalik Telur
   lcd.setCursor(0, 2);
@@ -861,7 +936,13 @@ void loop() {
     updateLcd();
   }
 
-  // 4. Trigger Background Upload otomatis setiap 20 detik (Non-Blocking)
+  // 4. Polling perintah kontrol jarak jauh dari server setiap 3.5 detik
+  if (now - lastControlPoll >= CONTROL_POLL_MS) {
+    lastControlPoll = now;
+    pollCloudControl();
+  }
+
+  // 5. Trigger Background Upload otomatis setiap 20 detik (Non-Blocking)
   if (now - lastUpload >= AUTO_UPLOAD_INTERVAL) {
     lastUpload = now;
     if (!uploadInProgress && uploadTaskHandle != NULL) {

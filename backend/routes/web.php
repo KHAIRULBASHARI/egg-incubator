@@ -19,4 +19,5 @@ Route::prefix('egg')->group(function () {
 Route::prefix('incubator')->group(function () {
     Route::post('/upload', [IncubatorController::class, 'upload'])->middleware(['device.key']);
     Route::get('/latest', [IncubatorController::class, 'latest']);
+    Route::match(['get', 'post'], '/control', [IncubatorController::class, 'control']);
 });

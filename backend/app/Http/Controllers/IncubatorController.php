@@ -118,11 +118,38 @@ class IncubatorController extends Controller
             Log::warning('Gagal memanggil API Flask YOLO Incubator: '.$e->getMessage());
         }
 
-        // 5. Store snapshot & detection results in Cache
+        // 5. Store snapshot, telemetry & detection results in Cache
+        $temp = $request->header('X-Temp') ?? $request->header('X-Temperature') ?? $request->input('temperature');
+        $humidity = $request->header('X-Humidity') ?? $request->input('humidity');
+        $lamp = $request->header('X-Lamp') ?? $request->header('X-Heater') ?? $request->input('lamp');
+        $motor = $request->header('X-Motor') ?? $request->input('motor');
+
+        if ($temp !== null) Cache::put('incubator:temperature', (float) $temp, 3600);
+        if ($humidity !== null) Cache::put('incubator:humidity', (float) $humidity, 3600);
+        if ($lamp !== null) Cache::put('incubator:lamp', (bool) $lamp, 3600);
+        if ($motor !== null) Cache::put('incubator:motor', (bool) $motor, 3600);
+
         Cache::put('incubator:latest_image', $base64Image, 3600);
         Cache::put('incubator:last_seen', $timestamp, 3600);
         Cache::put('incubator:detections', $detections, 3600);
         Cache::put('incubator:total_eggs', $totalEggs, 3600);
+
+        // Fetch current control settings for the ESP32
+        $control = Cache::get('incubator:control', [
+            'lampMode' => 'auto', // auto | on | off
+            'motorManualRequest' => false,
+            'tempMin' => 37.0,
+            'tempMax' => 38.0,
+            'motorIntervalHours' => 4,
+            'motorDurationSeconds' => 15,
+        ]);
+
+        // If motor was requested, consume the single-shot trigger
+        $motorTrigger = !empty($control['motorManualRequest']);
+        if ($motorTrigger) {
+            $control['motorManualRequest'] = false;
+            Cache::put('incubator:control', $control, 86400 * 30);
+        }
 
         return response()->json([
             'status' => 'success',
@@ -130,6 +157,59 @@ class IncubatorController extends Controller
             'total_eggs' => $totalEggs,
             'detections' => $detections,
             'timestamp' => $timestamp,
+            'control' => array_merge($control, ['motorManualRequest' => $motorTrigger]),
+        ]);
+    }
+
+    /**
+     * Get or update remote control settings for the incubator.
+     */
+    public function control(Request $request)
+    {
+        $current = Cache::get('incubator:control', [
+            'lampMode' => 'auto',
+            'motorManualRequest' => false,
+            'tempMin' => 37.0,
+            'tempMax' => 38.0,
+            'motorIntervalHours' => 4,
+            'motorDurationSeconds' => 15,
+        ]);
+
+        if ($request->isMethod('post') || $request->isMethod('put')) {
+            if ($request->has('lampMode')) {
+                $mode = strtolower((string) $request->input('lampMode'));
+                if (in_array($mode, ['auto', 'on', 'off'])) {
+                    $current['lampMode'] = $mode;
+                }
+            }
+            if ($request->has('motorManualRequest') || $request->has('triggerMotor')) {
+                $current['motorManualRequest'] = $request->boolean('motorManualRequest') || $request->boolean('triggerMotor');
+            }
+            if ($request->has('tempMin')) {
+                $current['tempMin'] = (float) $request->input('tempMin');
+            }
+            if ($request->has('tempMax')) {
+                $current['tempMax'] = (float) $request->input('tempMax');
+            }
+            if ($request->has('motorIntervalHours')) {
+                $current['motorIntervalHours'] = (int) $request->input('motorIntervalHours');
+            }
+            if ($request->has('motorDurationSeconds')) {
+                $current['motorDurationSeconds'] = (int) $request->input('motorDurationSeconds');
+            }
+
+            Cache::put('incubator:control', $current, 86400 * 30);
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Control settings updated',
+                'control' => $current,
+            ]);
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'control' => $current,
         ]);
     }
 
@@ -161,6 +241,20 @@ class IncubatorController extends Controller
             ]);
         }
 
+        $temperature = Cache::get('incubator:temperature');
+        $humidity = Cache::get('incubator:humidity');
+        $lamp = Cache::get('incubator:lamp');
+        $motor = Cache::get('incubator:motor');
+        $rssi = Cache::get('incubator:rssi');
+        $control = Cache::get('incubator:control', [
+            'lampMode' => 'auto',
+            'motorManualRequest' => false,
+            'tempMin' => 37.0,
+            'tempMax' => 38.0,
+            'motorIntervalHours' => 4,
+            'motorDurationSeconds' => 15,
+        ]);
+
         return response()->json([
             'status' => $status,
             'online' => ($ago !== null && $ago <= 60),
@@ -168,6 +262,12 @@ class IncubatorController extends Controller
             'url' => $image,
             'total_eggs' => (int) $totalEggs,
             'detections' => $detections ?: [],
+            'temperature' => $temperature,
+            'humidity' => $humidity,
+            'lamp' => $lamp,
+            'motor' => $motor,
+            'rssi' => $rssi,
+            'control' => $control,
             'last_updated' => $lastUpdated,
             'timestamp' => $lastSeen,
             'last_seen_sec' => $ago,
