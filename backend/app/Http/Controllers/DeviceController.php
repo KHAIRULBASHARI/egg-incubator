@@ -103,12 +103,29 @@ class DeviceController extends Controller
             Log::warning('Gagal memanggil API Candling NN: '.$e->getMessage());
         }
 
-        // 2. Kirim ke LLM Router untuk penjelasan mendalam sesuai SPESIFIKASI AGENT LLM
+        // 2. Simpan hasil klasifikasi & gambar segera agar ESP32 tidak menggantung
+        $job->update([
+            'status' => 'done',
+            'image_path' => null,
+            'prediction_label' => $aiLabel,
+            'confidence' => $aiConfidence,
+            'prediction_result' => $aiResult,
+            'llm_analysis' => null,
+            'image_base64' => $base64Image,
+        ]);
+
+        // Kirim respon 200 OK langsung ke ESP32 agar siklus upload selesai seketika
+        if (function_exists('fastcgi_finish_request')) {
+            response('OK')->send();
+            fastcgi_finish_request();
+        }
+
+        // 3. Eksekusi LLM Router di background (cepat ~6-8s dengan gemini-3.1-flash-lite)
         $llmAnalysis = null;
         try {
             $llmUrl = config('services.candling.llm_url', 'https://router.walker880.my.id/v1/chat/completions');
             $llmKey = config('services.candling.llm_key', 'sk-87fb2556b4e913ec-035612-de0e95de');
-            $llmModel = config('services.candling.llm_model', 'antigravity/gemini-3.8-flash-tiered');
+            $llmModel = config('services.candling.llm_model', 'antigravity/gemini-3.1-flash-lite');
 
             $labelDesc = $aiLabel ? strtoupper($aiLabel) : 'Tidak terdeteksi';
             $confDesc = $aiConfidence !== null ? round($aiConfidence * 100, 2).'%' : '-';
@@ -125,14 +142,6 @@ class DeviceController extends Controller
                 }
             } else {
                 $probText = "- Keyakinan: {$confDesc}\n";
-            }
-
-            $segStatus = 'Sukses';
-            if (! empty($aiResult['kualitas']['roi_mode'])) {
-                $segStatus .= ' ('.$aiResult['kualitas']['roi_mode'].')';
-            }
-            if (! empty($aiResult['kualitas']['peringatan'])) {
-                $segStatus .= ' | Catatan: '.implode(', ', $aiResult['kualitas']['peringatan']);
             }
 
             $systemPrompt = "Anda adalah Asisten Ahli Candling Telur yang bertugas memberikan penjelasan hasil peneropongan telur kepada peternak.\n\n"
@@ -183,13 +192,6 @@ class DeviceController extends Controller
                 ],
             ];
 
-            if (! empty($aiResult['visualisasi']['citra_jaringan_darah'])) {
-                $userContents[] = [
-                    'type' => 'image_url',
-                    'image_url' => ['url' => $ensureDataUri($aiResult['visualisasi']['citra_jaringan_darah'])],
-                ];
-            }
-
             $llmPayload = [
                 'model' => $llmModel,
                 'messages' => [
@@ -202,32 +204,24 @@ class DeviceController extends Controller
                         'content' => $userContents,
                     ],
                 ],
-                'max_tokens' => 800,
+                'max_tokens' => 500,
             ];
 
-            $llmResponse = Http::timeout(180)
+            $llmResponse = Http::timeout(45)
                 ->withToken($llmKey)
                 ->post($llmUrl, $llmPayload);
 
             if ($llmResponse->successful()) {
                 $llmAnalysis = $llmResponse->json('choices.0.message.content');
+                if ($llmAnalysis) {
+                    $job->update(['llm_analysis' => $llmAnalysis]);
+                }
             } else {
                 Log::error('LLM Router non-200: '.$llmResponse->status().' - '.$llmResponse->body());
             }
         } catch (\Throwable $e) {
             Log::error('Gagal memanggil LLM Router: '.$e->getMessage());
         }
-
-        // Simpan hasil klasifikasi & gambar sementara via base64 tanpa menyimpan file fisik ke disk
-        $job->update([
-            'status' => 'done',
-            'image_path' => null,
-            'prediction_label' => $aiLabel,
-            'confidence' => $aiConfidence,
-            'prediction_result' => $aiResult,
-            'llm_analysis' => $llmAnalysis,
-            'image_base64' => $base64Image,
-        ]);
 
         return response('OK');
     }

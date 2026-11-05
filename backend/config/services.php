@@ -43,7 +43,7 @@ return [
         'api_url' => env('CANDLING_API_URL', 'http://127.0.0.1:5000/api/predict'),
         'llm_url' => env('LLM_ROUTER_URL', 'https://router.walker880.my.id/v1/chat/completions'),
         'llm_key' => env('LLM_ROUTER_KEY', 'sk-87fb2556b4e913ec-035612-de0e95de'),
-        'llm_model' => env('LLM_ROUTER_MODEL', 'antigravity/gemini-3.8-flash-tiered'),
+        'llm_model' => env('LLM_ROUTER_MODEL', 'antigravity/gemini-3.1-flash-lite'),
     ],
 
 ];
