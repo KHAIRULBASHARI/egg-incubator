@@ -16,11 +16,11 @@
 #include "secrets.h"
 
 // ================= KONFIGURASI HARDWARE & JARINGAN =================
-#define POLL_MS        3000                 // Jeda polling ke server (milidetik)
-#define TX_POWER       WIFI_POWER_11dBm     // Daya transmisi WiFi stabil rendah noise
+#define POLL_MS        2000                 // Jeda polling ke server (milidetik)
+#define TX_POWER       WIFI_POWER_19_5dBm   // Daya transmisi WiFi maksimal untuk upload cepat
 #define PIN_RELAY      14                   // Relay LED candling (HIGH trigger)
-#define JPEG_QUALITY   6                    // Kualitas JPEG default (4..15)
-#define MAX_TRIES      4                    // Maksimum percobaan capture saat frame cacat
+#define JPEG_QUALITY   8                    // Kualitas JPEG optimal QXGA (tajam, hemat bandwidth)
+#define MAX_TRIES      3                    // Maksimum percobaan capture saat frame cacat
 
 // ================= PIN KAMERA AI-THINKER =================
 #define PWDN_GPIO_NUM  32
@@ -127,20 +127,33 @@ void tuneSensor() {
   }
 }
 
-// Inisialisasi kamera on-demand
+// Inisialisasi kamera on-demand dengan target resolusi QXGA (2048x1536)
 bool initCamera() {
-  // Minta resolusi QSXGA agar driver menyesuaikan ke batas sensor (OV3660: 2048x1536, OV2640: UXGA)
-  camera_config_t c = makeConfig(FRAMESIZE_QSXGA);
-  if (esp_camera_init(&c) != ESP_OK) {
-    esp_camera_deinit();
-    c = makeConfig(FRAMESIZE_UXGA);
-    if (esp_camera_init(&c) != ESP_OK) {
-      return false;
-    }
+  // Coba inisialisasi urutan resolusi tertinggi yang didukung sensor (QXGA -> UXGA -> SXGA)
+  camera_config_t c = makeConfig(FRAMESIZE_QXGA);
+  if (esp_camera_init(&c) == ESP_OK) {
+    tuneSensor();
+    camCfg.valid = false;
+    return true;
   }
-  tuneSensor();
-  camCfg.valid = false;
-  return true;
+
+  esp_camera_deinit();
+  c = makeConfig(FRAMESIZE_UXGA);
+  if (esp_camera_init(&c) == ESP_OK) {
+    tuneSensor();
+    camCfg.valid = false;
+    return true;
+  }
+
+  esp_camera_deinit();
+  c = makeConfig(FRAMESIZE_SXGA);
+  if (esp_camera_init(&c) == ESP_OK) {
+    tuneSensor();
+    camCfg.valid = false;
+    return true;
+  }
+
+  return false;
 }
 
 // Mengaktifkan kamera jika belum aktif
