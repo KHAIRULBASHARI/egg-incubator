@@ -25,6 +25,8 @@ backend/storage/*.key
 
 # Firmware Secrets
 firmware/capture-telur/secrets.h
+firmware/incubator/secrets.h
+esp32_incubator/secrets.h
 secrets.h
 
 # Model weights & large datasets
