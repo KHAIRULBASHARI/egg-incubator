@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\DeviceKey;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -18,9 +19,10 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->validateCsrfTokens(except: [
             'egg/*',
+            'incubator/*',
         ]);
         $middleware->alias([
-            'device.key' => \App\Http\Middleware\DeviceKey::class,
+            'device.key' => DeviceKey::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

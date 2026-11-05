@@ -8,7 +8,6 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
 
 class DeviceController extends Controller
 {
@@ -169,18 +168,19 @@ class DeviceController extends Controller
                 ."(Penjelasan mudah dipahami mengapa telur dinilai demikian)\n\n"
                 ."4. Tindakan untuk Peternak:\n"
                 ."- (Langkah yang harus dilakukan peternak)\n"
-                ."- (Tips perawatan mesin tetas atau pemanfaatan telur)";
+                .'- (Tips perawatan mesin tetas atau pemanfaatan telur)';
 
             $userPrompt = "Data Deteksi:\n"
                 ."- Status: {$labelDesc}\n"
                 .$probText
                 ."- Citra candling telur terlampir.\n\n"
-                ."Instruksi: Berikan penjelasan hasil peneropongan telur ini sesuai format teks polos tanpa markdown dan tanpa emoji.";
+                .'Instruksi: Berikan penjelasan hasil peneropongan telur ini sesuai format teks polos tanpa markdown dan tanpa emoji.';
 
             $ensureDataUri = function ($img) {
                 if (! str_starts_with($img, 'data:image/')) {
                     return 'data:image/jpeg;base64,'.$img;
                 }
+
                 return $img;
             };
 
@@ -224,5 +224,21 @@ class DeviceController extends Controller
         }
 
         return response('OK');
+    }
+
+    /**
+     * Delegate to IncubatorController for incubator snapshot upload.
+     */
+    public function incubatorUpload(Request $request)
+    {
+        return app(IncubatorController::class)->upload($request);
+    }
+
+    /**
+     * Delegate to IncubatorController for latest incubator snapshot.
+     */
+    public function incubatorLatest(Request $request)
+    {
+        return app(IncubatorController::class)->latest($request);
     }
 }
