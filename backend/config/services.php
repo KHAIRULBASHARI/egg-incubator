@@ -46,4 +46,8 @@ return [
         'llm_model' => env('LLM_ROUTER_MODEL', 'antigravity/gemini-3.1-flash-lite'),
     ],
 
+    'incubator' => [
+        'api_url' => env('INCUBATOR_YOLO_URL', env('INCUBATOR_API_URL', 'http://127.0.0.1:5001/api/incubator/detect')),
+    ],
+
 ];
