@@ -1,0 +1,6 @@
+flask>=3.0.0
+flask-cors>=4.0.0
+opencv-python>=4.8.0
+numpy>=1.26.0
+# Optional untuk inferensi model deep learning YOLO (jika ingin menggunakan model .pt):
+# ultralytics>=8.0.0
